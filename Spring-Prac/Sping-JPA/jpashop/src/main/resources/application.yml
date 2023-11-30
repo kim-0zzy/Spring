@@ -1,0 +1,31 @@
+#application.properties의 대체파일.
+spring:
+  datasource:
+    url: jdbc:h2:tcp://localhost/~/jpashop; #MVCC=TRUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+
+#이런 설정들은 spring-boot 메뉴얼에 가서 배우셈.
+#springboot -> project -> springboot -> learn -> documentation
+  jpa:
+    hibernate:
+      ddl-auto: create
+    properties:
+      hibernate:
+        #show_sql: true #이걸 사용하면 JPA나 HIBERNATE가 사용하는 SQL을 프린트해줌. 웬만하면 사용 X
+        format_sql: ture
+        default_batch_fetch_size: 100
+        #default_batch_fetch_size in 쿼리의 갯수를 뜻함.
+
+logging:
+  level:
+    org.hibernate.SQL: debug #이걸 사용하면 JPA나 HIBERNATE가 사용하는 SQL이 로그콘솔에 다 보임.
+    org.hibernate.type: trace #이걸 사용하면 SQL의 파라미터를 로그 끝자락에 찍어줌. but, 외부라이브러리 사용할 것.
+
+server:
+  tomcat:
+    connection-timeout: -1

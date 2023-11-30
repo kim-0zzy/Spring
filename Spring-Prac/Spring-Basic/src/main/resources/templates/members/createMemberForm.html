@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html xmlns:th="https://www.thymeleaf.org">
+<body>
+
+<div class="container">
+
+    <form action="/members/new" method="post">
+        <div class="form-group">
+            <label for="name">이름</label>
+            <!-- 밑줄에 name="name"에서 값 받은것을 MemberForm의 setName으로 전달하고 getName을 통해
+            MemberController의 create 메소드의 파라미터로 전달해줌.-->
+            <input type="text" id="name" name="name" placeholder="이름을 입력하세요">
+        </div>
+        <button type="submit">등록</button>
+    </form>
+</div>
+
+
+</body>
+</html>

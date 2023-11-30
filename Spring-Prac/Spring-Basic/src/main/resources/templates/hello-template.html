@@ -1,0 +1,7 @@
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--hello! empty를 왜 써놨냐 = 서버 안돌리고 html만 열어도 값을 볼 수 있기때문
+hello + ${값} 이건 서버 실행 시 값이 이걸로 바껴서 나옴-->
+<p th:text="'hello' + ${name}">hello! empty</p>
+</body>
+</html>

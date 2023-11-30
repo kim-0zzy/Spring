@@ -1,0 +1,234 @@
+Controller -> Service -> Repository -> DB
+       ↘          ↓          ↙
+                Domain
+Controller,Web:웹계층 /Service:비즈니스로직,트랜젝션 처리 /Repository:JPA를 직접사용,EM사용 /Domain:엔티티집합소, 모든계층에서 사용
+Controller: 웹계층과 연동기능 수행
+Repository : 조회, 수정, 저장 기능 수행
+Domain : 비즈니스 로직 기능 수행 (예약취소, 수량반환, 전체가격반환 등등)
+Service : Repository 의 기능을 위임받아 Transaction 에서 약간의 비즈니스 로직을 수행. (Validation, Update, Join, Cancel 등등)
+--------------------------------------------------------------------------------------------------------------
+1. N:1 관계에서는 항상 N쪽이 연관관계의 주인이 되는것이 편리하다. (주인이란 다른 엔티티의 기본키인 외래키를 관리하는 것.)
+   연관관계의 주인만이 값 셋팅, 변경이 가능하고 주인만이 DB 연관관계와 매핑되고 외래키 등록,수정,삭제를 할 수 있다.
+   연관관계의 주인이 아닌 엔티티는 조회(읽기)만 하는 거울이 됨.
+   mappedBy 속성은 주인이 아닌 엔티티의 필드에 사용함.                                연관관계 짧게 정리. -> https://jeong-pro.tistory.com/231
+2. 외래키가 있는 곳을 연관관계의 주인으로 정할 것.
+    " @XToX(mappedBy = "주인엔티티의 필드명") " ex) @OneToMany(mappedBy = "member") (Order 엔티티)
+3. 연관관계의 주인은 단순히 외래키를 누가 관리하냐의 문제, 비즈니스상의의 우위로 주인을 정하지 말 것.
+4. 설계 단계에서는 웬만하면 단방향 연관관계를 사용할 것.
+    -> Q. 무조건 양방향 사용하는게 편리하지않나?
+    A. 모든 엔티티를 양방향 연관관계로 만들면 자주 사용되는 엔티티는 수많은 연관관계를 갖게된다.
+    이 상황에서 해당 엔티티 클래스는 굉장히 복잡한 코드를 갖게 되고 복잡성이 끝없이 증가한다.
+    Tip. 단방향으로 설계한 후 역방향 객체 탐색이 필요할 때 양방향으로 수정한다는 개념으로 이해할 것.
+5. 모든 연관관계는 Lazy로딩으로 설정. EAGER는 예측이 어렵고 어떤 SQL이 실행될지 추측하기 어렵고 N+1문제가 잦다.
+-----------------------------------------------------------------------------------------------------------------------
+6. 실무에서는 가급적 Getter만 사용할 것. Setter는 반드시 필요한 경우만 사용하고 별도의 메서드를 제공해야한다.
+   -> Setter를 남발하면 어느곳에서 데이터의 수정이 이루어졌는지 파악하기 힘들고 운영단계에서의 유지보수성이 떨어진다.
+7. 객체는 타입이 존재하기 때문에 어디 소속(필드,메서드)인지 명확하지만, 테이블은 아니기 때문에 @Column(name = "엔티티명_필드명")으로 매핑 해줄 것.
+    -> Member member에서 member 객체는 Member 타입의 객체다.
+8. 복합값 타입((Embedded)Value Type)은 기본 생성자 필수생성하고 접근제어자를 protected로 사용해 변경이 불가능하게 설계해야 한다.
+    -> Why? 복합값 타입을 수정해서 얻는 이익은 미미하나 불변객체로 만들 시 예방할 수 있는 부작용은 매우크기 때문이다.
+    이때 부작용은 큰 재앙으로 생각해도 될 정도다. (여담. JAVA의 불변객체는 Integer, String 등이 있음.)
+9. XtoOne관계는 default가 EAGER이기 때문에 별도로 Lazy로 변경해 줄 것.
+    -> #5번의 부작용 예방위함.
+10. 컬렉션은 필드에서 초기화 하기. 컬렉션이 null을 반환하는 문제에서 안전함. [ex) Member엔티티의 orders]
+11. XtoX(Cascade = CascadeType.ALL)을 사용하면 해당 엔티티와 연관된 엔티티를 모두 불러옴.
+    해당 옵션은 B엔티티를 A엔티티에서만 참조할 경우에만 사용하는 것이 좋다.
+    B엔티티를 A도쓰고 C도쓰고 여러군데에서 사용한다면 처음 호출되는 엔티티의 양이 방대해져 성능저하를 야기할 수 있음.
+12. 연관관계 편의 메서드는 양방향 연관관계에서의 값 셋팅에 편리함을 제공해 줄 수 있다. (Order엔티티 참고)
+13. JPA에서는 별도의 Update쿼리가 필요하지 않다. 변경감지로 인해 JPA에서 자동으로 Update쿼리를 날리기 떄문.
+    -> 변경감지란 영속성 컨텍스트를 트랜젝션으로 가져와 .getName()등의 기능#으로 깨워주는 것. (#엔티티를 직접 참조해야하는 메서드로)
+14. OrderService의 주문과 주문취소 메서드같은 비즈니스로직이 대부분 엔티티에 있음을 알 수 있음. 서비스 계층은 단순히 엔티티에 필요한
+    요청, 역할을 위임하는 역할만 수행. 이처럼 엔티티안에 대부분의 비즈니스 로직이 있는 것을 [도메인 모델 패턴] 이라고 함.
+    이와 반대인 것은 [트랜젝션 스크립트 패턴]. 엔티티에 비즈니스 로직이 거의 없고 서비스 계층에서 비즈니스 로직을 처리하는 방법.
+    엔티티는 단순하게 데이터 전달의 역할만을 수행하므로 서비스 계층의 로직이 방대해진다.
+    어떤 상황이던 무조건적으로 좋은 것은 없음. 무엇이 유지보수에 유리한지는 알아서 판단해서 채택할 것.
+15. 엔티티는 핵심 비즈니스 로직만 가지고 있어야하고 화면을 위한 로직은 없어야 한다. 화면을 위한 로직은 DTO나 API를 활용해야 한다.
+    15-1. 엔티티를 UI계층에 노출하지 않고 캡슐화 하기 위함. 노출되면 화면에 테이블 설계를 공개하는 것과 같다.
+    15-2. DTO를 사용하면 화면에 필요한 데이터만 선별가능
+    15-3. validation코드와 엔티티 모델링 코드 분리 가능
+                                                        https://tecoble.techcourse.co.kr/post/2020-08-31-dto-vs-entity/
+16. 변경감지는 ItemService 클래스 볼 것. (13번도 참고)
+17. API를 만들때는 절대로 엔티티를 노출(반환)해서는 안된다. password등이 노출될 수 있는 문제와 API스펙 변경의 문제가 있기 때문이다.
+18. API를 만들때는 절대로 엔티티를 파라미터로 받지 말고 API스펙에 맞는 DTO를 만들어 사용할 것.
+19. OrderSimpleApiController 무한로딩.
+    Order엔티티에서 Member엔티티를 호출할 때 Member엔티티는 Lazy로딩이기 때문에 Member엔티티의 데이터를 직접 조회하기 전 까지
+    Member엔티티를 DB에서 호출하지 않고 Proxy객체를 생성해서 가져오기 때문에 DB에서는 Order엔티티의 정보만 가져오게 된다.
+    Member엔티티는 Proxy를 이용해서 ByteBuddy객체를 대신 생성해서 가져오게된다. 여기서 문제는 JSON이 Member의 정보를 뽑아내려 하는데
+    Proxy객체때문에 정보를 뽑아낼 수 없기 때문에 오류가 발생하게됨.
+20. Controller - Service - Repository 간 관계에서 의존관계가 존재하면 안된다. -> 순환참조문제가 일어날 수 있다.
+--------------------------------------------------------------------------------------------------------------
+쿼리방식 선택 권장 순서 (XtoOne 방식 위주?)
+
+1. 엔티티를 DTO로 변환하는 방법 선택                                    V2
+2. 필요하면 페치조인 사용해 성능 최적화 -> 95%가량의 문제 해결 가능          V3
+3. 그래도 안되면 DTO로 직접 조회하는 방법 사용                            V4
+4. 최후로 JPA가 제공하는 네이티브 SQL이나 스프링 JDBC Template를 사용해 SQL를 직접 사용.
+--------------------------------------------------------------------------------------------------------------
+자주 사용하는 @property 종류 및 기능
+
+@GeneratedValue(strategy = GenerationType.IDENTITY) // @GeneratedValue는 db에 값을 자동으로 생성해주는 아이덴티티전략이라고 한다.
+
+@Entity - 엔티티 클래스에 사용  / @Repository / @Service / @Controller /
+
+@Transactional - JPA의 모든 데이터 변경은 항상 트랜젝션 안에서 실행되어야한다. (영속성 컨텍스트)
+
+@Autowired - 생성자 DI용.
+
+(@RequestParam("name") String name) 이 부분은 html에서 입력된 데이터를 name에 넘겨준다는 뜻.
+
+@ResponseBody - html파일을 찾지 않고 url태그 뒤에 값을 입력해 html에 그대로 뿌려주는 기능.
+
+@RestController = @Controller + @ResponseBody
+
+@Getter @Setter - Lombok의 기능.
+
+@RequiredArgsConstructor -  생성자 인젝션 기능. (final이나 @NotNull 필드값만 param으로 받는 생성자 생성)
+set인젝션, 생성자인젝션, @AllArgsConstrucotr 인젝션, @Autowired + private Repository;
+방식도 존재하나 각각 단점이 있으므로 @RequiredArgsConstructor 인젝션 사용할 것. 이게 가장 나음.(LOMBOK 기능)
+
+@Data = @Getter + @Setter + @ToString + @EqualsAndHashCode + @RequiredArgsConstructor
+
+@AllArgsConstructor - 모든 필드 값을 파라미터로 받는 생성자 생성.
+@NoArgsConstructor - 파라미터가 없는 기본(껍데기) 생성자 생성.
+
+@PathVariable - 대충 이렇게 알아듣기
+@PutMapping("/api/v2/members/{id}")
+     public UpdateMemberResponse updateMemberResponseV2(@PathVariable("id") Long id, ...생략
+
+@NotEmpty - 엔티티 필드에 추가하여 해당 필드를 무조건 입력해야하는 데이터로 변환시켜줌.
+
+@ModelAttribute - https://donggu1105.tistory.com/14
+해당 어노테이션을 사용한 파라미터의 클래스는 bean타입 클래스여야 하고 get-setter가 있어야 하며 실행시 객체가 자동으로 생성되며
+웹으로 넘어간 값들이 자동 바인딩 된다. 또 객체가 자동으로 Model 객체에 추가되고 뷰로 전달된다.
++ @ModelAttribute("XX")Bookform bookform 은 html파일에서 XX를 변수명으로 설정한 데이터가  bookform으로 넘어올 수 있게 해줌.         -ItemController 클래스-
+
+@Embeddable / @Embedded = 값타입 엔티티를 사용할 때 값타입 엔티티에는 @Embeddable, 해당 엔티티를 사용하는 곳에선 @Embedded를 지정.
+
+@Enumerated(EnumType.ORDINAL/STRING) ORDINAL은 숫자가 들어가고 STRING은 문자가 들어감. 사용목적에 따라 선택할 것.
+
+@JsonIgnore - 이것으로 api에서의 노출을 막을 수 있음.
+
+@Table(name = "orders") = Table명을 orders로 설정하겠다는 뜻.
+
+@JoinColumn(name = "delivery_id")  → Delivery엔티티의 id필드와 연결한다는 뜻.
+    private Delivery delivery;     ↗
+
+@Valid를 사용하면 해당 엔티티 클래스의 유효성 검사를 실행할 수 있다. (@NotEmpty, @NotBlank, @Email, @NotNull , @Min,Max 등등)이 붙은 필드가 대상.
+- 매핑관련 ------------------------------------------------------------------------------------------------------
+@RequestMapping - Get, Post, Put의 하위호환.
+@GetMapping("hello")   /  @PostMapping("/members/new")  - return "redirect:/"
+GetMapping - 조회할때 사용 -> 대부분 Model model을 파라미터로 받음.
+PostMapping은 Form에 넣어서 전달할때 사용 (데이터를 등록할 때). -> 대부분 Form클래스를 파라미터로 받음.
+- 상속관계 매핑 관련 ----------------------------------------------------------------------------------------------
+@Inheritance(strategy = InheritanceType.SINGLE_TABLE) - 테이블 전략을 지정하는 프로퍼티 JOINED / SINGLE_TABLE / TABLE_PER_CLASS
+@DiscriminatorColumn(name="DTYPE") - 부모 클래스, 하위 클래스를 구분하는 용도 default = DTYPE
+@DiscriminatorValue("XXX")  - 하위(자식) 클래스, 엔티티를 저장할 때 슈퍼타입의 구분 컬럼에 저장할 값을 지정 default = 클래스명
+                            - 저장이 될 때 DB에서 구분할 수 있게 넣는 값.
+- 등록 관련 -----------------------------------------------------------------------------------------------------
+@Configuration - 설정파일(Config Class)을 만들기 위한 어노테이션 or Bean을 등록하기 위한 어노테이션
+@Component - 직접 작성한 Class를 Bean으로 등록하기 위한 어노테이션
+@Bean - 개발자가 작성한 Method를 통해 반환되는 객체를 Bean만드는 어노테이션
+----------------------------------------------------------------------------------------------------------------
+
+Controller 관련 모음 --------------------------------------------------------------------------------------------
+    @PostMapping("/items/new")                                                          ItemController 클래스
+    public String create(BookForm form){
+        Book book = new Book();
+        // Setter 제거 후 해당 생성기능 메서드를 만들어 사용하는 것이 좋은 설계.
+        book.setName(form.getName()); book.setPrice(form.getPrice()); book.setStockQuantity(form.getStockQuantity());
+        book.setAuthor(form.getAuthor()); book.setIsbn(form.getIsbn());
+
+        itemService.saveItem(book); return "redirect:/items";
+    }
+                                                                                        MemberController 클래스
+가급적 Controller 에서 엔티티를 생성하지 말 것, 업데이트 로직 설계 시 엔티티를 생성해서 설계하는 것은 권장하지 않음.
+트랜젝션이 있는 서비스 계층에서 식별자와 변경할 데이터(파라미터 or Dto)를 명확히 전달해 업데이트 하는 것을 권장함.
+BindingResult를 사용하면 해당 메서드에서 발생한 오류를 사용할 수 있음.
+
+form @NotEmpty(message = "회원 이름은 필수 입니다.")
+@Controller, @RequiredArgsConstructor, @GetMapping(" "), @PostMapping, @RequestParam(" A ") Type A,
+@ModelAttribute, @PathVariable, @Valid, @RequestMapping(" ")
+
+Repository 관련 모음 --------------------------------------------------------------------------------------------
+웬만하면 merge는 사용하지 않는 것이 좋음. 선택되지 않는 값도 바꿔버리기에(갱신하기에) 값이 null로 변경될 수 있기 때문.
+변경감지 기능을 사용하는 것을 권장함.
+                                                                                        MemberRepository 클래스
+    public void save(Member member){
+        em.persist(member);
+        //return member.getId(); -> 커맨드와 쿼리를 분리하기 위해 엔티티를 반환하지 않고 id정도만 반환.
+    }                                Side Effect 때문에 웬만하면 return 값을 만들지 않음.
+                                     save 메서드로 인해 Insert쿼리가 날아감.
+
+Criteria -> JPA의 동적쿼리 빌드전용 라이브러리, but 권장하지않음. 실무에서 사용하기 힘듬. QueryDSL을 추천함.
+
+                                                                                        OrderRepository 클래스
+페치조인으로 써야할 DB를 Lazy로딩을 무시하고 한번에 가져옴. 사용법 " join fetch o.member m"
+
+1:N 상황에서는 컬렉션 페치조인을 사용하지 않는것을 권장.  distinct 없이 사용하면 DB에 조인이 되어서 로그가 2배가 되어버림.
+( distinct 사용 시 db에 (from 뒤의) 엔티티가 중복일 경우 중복제외 키워드를 날려줌)
+1:N 관계에서 다쪽에 맞춰버리기 때문에 레퍼런스값까지 똑같은 조회를 2배로 뻥튀기해버림.
+그러나 distinct를 사용해도 db결과는 이전과 같이 2배뻥튀기 되어있음.  왜? db에서 distinct는 모든값이 동일해야 작동하기 때문.
+-> but, Jpa는 DB 결과를 애플리케이션에 가져와서 한번 더 걸러준다. ex) 가져온 Order의 id가 같으면 중복을 제거해줌.
+
+컬렉션 페치조인 단점
+첫 번쨰는 페이징 불가능. 메모리에서 페이징 처리해버림. out of memory 발생. 쓰면 큰일남.
+두 번쨰는 컬렉션 페치조인은 1개만 사용 가능, 둘 이상에 사용시 1:N:M이 되어 N*M 상황이 펼처짐.
+
+                                                                                        OrderSimpleQueryRepository 클래스
+public List<OrderSimpleQueryDto> findOrderDtos(){
+
+
+        return em.createQuery(
+            "select o " +  <- 변경 전 코드     ↓ 변경 후 코드
+            "select new jpabook.jpashop.repository.order.simplequery.OrderSimpleQueryDto(o.id, m.name, o.orderDate, o.status, d.address) " +
+                " from Order o"+
+                " join o.member m"+
+                " join o.delivery d", OrderSimpleQueryDto.class)
+                .getResultList();
+
+일반적인 select절로는 OrderSmpleQueryDto를 매핑 할 수가 없음. 위의 JPQL은 dto가 생성자에 들어가서 매핑되고 그러는 방식이 아님.
+Jpa는 엔티티나 value Object(embedable)만 반환할 수 있음. 그래서 dto를 반환하려면 new 오퍼레이션을 꼭 써주어야함.
+-> but, new 오퍼레이션에서 엔티티를 파라미터로 바로 넘겨주면 안됨. 엔티티가 식별자로 넘어가기 떄문. OrderSimpleQueryDto 참고.
+new 오퍼레이션을 사용하면 JPQL의 결과를 DTO로 매핑할 수 있음.
+-> but, 어떻게 보면 이 방식은 논리적으로 계층이 깨져있는 상태임. 화면을 repository에 의존하고 있는 것.
+
+@Repository, @RequiredArgsConstructor
+
+Service 관련 모음 --------------------------------------------------------------------------------------------
+JPA의 모든 데이터 변경, 로직은 하나의 트랜젝션 안에서 실행되어야함. -> @Transactional              MemberService 클래스
+(readOnly = true)를 사용하면 조회 메서드에서 성능향상 기대 가능. 쓰기 메서드는 절대사용 안됨. 기본옵션 false
+클래스 전체에 사용해도 되고 메서드마다 사용해도 되는데 여기선 전체사용함.
+
+중복회원 검증 비즈니스 로직은 중복을 허용하지 않을 엔티티의 인스턴스에 unique 제약조건을 걸어주는것이 중복회원가입에 안전하다.
+                                                                                        OrderService 클래스
+@Transactional
+    public Long order(Long memberId, Long itemId, int count){
+
+->  Long memberId 대신 Member엔티티를 파라미터로 받게 되면 OrderController의 order메서드의
+    트랜젝션의 영속성 컨텍스트와 관계 없는 Member엔티티가 넘어오게 되기때문에 쓰지않음.
+    영속성 컨텍스트와 관계없는 엔티티와 준영속상태의 엔티티가 생성되는 것을 주의하자.
+
+OrderItem orderItem1 = new OrderItem();
+orderItem1.setCount();
+-> 이런식으로 개별 필드(객체)를 만들어서 setter를 사용하는 것은 권장하지 않음. 해당 행위를 막아놓기 위해 OrderItem의 생성자를 protected로 만드는 것을 권장함.
+
+@Service, @Transactional(readOnly = true[default = false]), @RequiredArgsConstructor
+
+API 관련은 직접 보기 --------------------------------------------------------------------------------------------
+DTO : @Data @AllArgsConstructor,
+@GetMapping("/api/v4/simple-orders"), @PostMapping("/api/v1/members"), @PutMapping("/api/v2/members/{id}"),
+@RestController, @RequiredArgsConstructor, @RequestParam("  ")
+
+Domain 관련 모음 --------------------------------------------------------------------------------------------
+address엔티티) 임베디드타입(값타입)을 사용할 때는 @Embeded나 @Embedable꼭 필요함.
+item엔티티) 싱글테이블 전략이 난잡하긴 하지만 간단하고 성능이 잘 나옴. @DiscriminatorValue : 저장이 될 때 DB에서 구분할 수 있게 넣는 값.
+delivery엔티티) @Enumerated(EnumType.ORDINAL/STRING) ORDINAL은 숫자가 들어가고 STRING는 문자가 들어감. 사용목적에 따라 선택할 것.
+category엔티티) N:M 매핑은 사용하지 말 것. 예제로 사용한 것 뿐임.
+O <-> M / O -> D / O <-> Oi / Oi -> I / C <-> I / A,B,M -> I (양<->,단방향-> 연관관계)
+
+@Entity, @Getter @Setter, @Id @GeneratedValue, @Column(name = "member_id") @JoinColumn(name = "member_id"),
+@Embedded @Embeddable, @NoArgsConstructor(access = AccessLevel.PROTECTED) /
+@NotEmpty  @JsonIgnore / @xTox(mappedBy = "주인이 될 필드이름"), @Table(name = " 설정할 테이블 이름. ") /
+@Enumerated(EnumType. [STRING/ORDINAL] ), @Inheritance(strategy = InheritanceType. [JOINED / SINGLE_TABLE / TABLE_PER_CLASS]),
+@DiscriminatorColumn(name = " A ")
+--------------------------------------------------------------------------------------------------------------
